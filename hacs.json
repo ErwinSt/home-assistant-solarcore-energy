@@ -1,0 +1,13 @@
+{
+    "name": "Solarcore Energy",
+    "domain": "solarcore_energy",
+    "documentation": "https://github.com/ErwinSt/home-assistant-solarcore-energy",
+    "repository": "https://github.com/ErwinSt/home-assistant-solarcore-energy",
+    "issue_tracker": "https://github.com/ErwinSt/home-assistant-solarcore-energy/issues",
+    "codeowners": ["@ErwinSt"],
+    "version": "1.0.0",
+    "requirements": [],
+    "iot_class": "cloud_polling",
+    "country": ["fr"],
+    "integration_type": "integration"
+  }

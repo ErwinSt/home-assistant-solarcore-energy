@@ -1,0 +1,10 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Rockcore Solar",
+                "description": "Enter your Rockcore account credentials"
+            }
+        }
+    }
+}

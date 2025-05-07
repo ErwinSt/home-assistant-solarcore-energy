@@ -1,0 +1,12 @@
+{
+  "domain": "solarcore_energy",
+  "name": "Solarcore Energy",
+  "description": "A custom integration for Solarcore Energy",
+  "configuration_url": "https://github.com/ErwinSt/home-assistant-solarcore-energy",  
+  "documentation": "https://github.com/ErwinSt/home-assistant-solarcore-energy",
+  "dependencies": [],
+  "codeowners": ["@ErwinSt"],
+  "requirements": ["requests"],
+  "version": "1.0.0",
+  "config_flow": true
+}
