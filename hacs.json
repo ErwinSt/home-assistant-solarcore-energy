@@ -9,5 +9,6 @@
     "requirements": [],
     "iot_class": "cloud_polling",
     "country": ["fr"],
-    "integration_type": "integration"
+    "integration_type": "integration",
+    "filename": "custom_components/solarcore_energy/manifest.json"
   }

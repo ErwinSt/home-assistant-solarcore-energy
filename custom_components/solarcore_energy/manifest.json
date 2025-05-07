@@ -8,5 +8,12 @@
   "codeowners": ["@ErwinSt"],
   "requirements": ["requests"],
   "version": "1.0.0",
-  "config_flow": true
+  "config_flow": true,
+  "integration_type": "hub",
+  "is_built_in": false,
+  "dhcp": [],
+  "ssdp": [],
+  "zeroconf": [],
+  "quality_scale": "silver",
+  "icon": "icon.png"
 }
