@@ -10,5 +10,7 @@
     "iot_class": "cloud_polling",
     "country": ["fr"],
     "integration_type": "integration",
-    "filename": "custom_components/solarcore_energy/manifest.json"
+    "filename": "custom_components/solarcore_energy/manifest.json",
+    "icon": "https://raw.githubusercontent.com/ErwinSt/home-assistant-solarcore-energy/main/icon.png"
+
   }
