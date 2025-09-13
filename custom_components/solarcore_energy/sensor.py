@@ -2,7 +2,12 @@ import logging
 from datetime import timedelta
 
 import aiohttp
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -29,20 +34,91 @@ _LOGGER = logging.getLogger(__name__)
 
 MAX_ENERGY_JUMP_KWH = 5
 
-SENSOR_TYPES = {
-    "power_total": ["Total Power", "W", SensorDeviceClass.POWER],
-    "power1": ["Power 1", "W", SensorDeviceClass.POWER],
-    "power2": ["Power 2", "W", SensorDeviceClass.POWER],
-    "vol1": ["Voltage 1", "V", SensorDeviceClass.VOLTAGE],
-    "vol2": ["Voltage 2", "V", SensorDeviceClass.VOLTAGE],
-    "current1": ["Current 1", "A", SensorDeviceClass.CURRENT],
-    "current2": ["Current 2", "A", SensorDeviceClass.CURRENT],
-    "gridseq": ["Grid Freq", "Hz", None],
-    "gridvolc": ["Grid Voltage", "V", SensorDeviceClass.VOLTAGE],
-    "temp": ["Temperature", "°C", SensorDeviceClass.TEMPERATURE],
-    "total_energy": ["Total Energy", "kWh", SensorDeviceClass.ENERGY],
-    "today_energy": ["Today Energy", "Wh", SensorDeviceClass.ENERGY],
-}
+SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
+    SensorEntityDescription(
+        key="power_total",
+        translation_key="power_total",
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement="W",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="power1",
+        translation_key="power1",
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement="W",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="power2",
+        translation_key="power2",
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement="W",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="vol1",
+        translation_key="vol1",
+        device_class=SensorDeviceClass.VOLTAGE,
+        native_unit_of_measurement="V",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="vol2",
+        translation_key="vol2",
+        device_class=SensorDeviceClass.VOLTAGE,
+        native_unit_of_measurement="V",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="current1",
+        translation_key="current1",
+        device_class=SensorDeviceClass.CURRENT,
+        native_unit_of_measurement="A",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="current2",
+        translation_key="current2",
+        device_class=SensorDeviceClass.CURRENT,
+        native_unit_of_measurement="A",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="gridseq",
+        translation_key="gridseq",
+        native_unit_of_measurement="Hz",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="gridvolc",
+        translation_key="gridvolc",
+        device_class=SensorDeviceClass.VOLTAGE,
+        native_unit_of_measurement="V",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="temp",
+        translation_key="temp",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement="°C",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="total_energy",
+        translation_key="total_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement="kWh",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    SensorEntityDescription(
+        key="today_energy",
+        translation_key="today_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement="Wh",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+]
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
@@ -51,33 +127,32 @@ async def async_setup_entry(
     coordinator = RockcoreDataUpdateCoordinator(hass, entry.data, options)
     await coordinator.async_config_entry_first_refresh()
 
-    enabled_sensors = options.get(CONF_SENSORS, list(SENSOR_TYPES.keys()))
+    enabled_sensors = options.get(
+        CONF_SENSORS, [desc.key for desc in SENSOR_DESCRIPTIONS]
+    )
     entities = []
     for station_id in coordinator.station_ids:
         inverter = coordinator.data.get(station_id, {})
-        for key, (name, unit, device_class) in SENSOR_TYPES.items():
-            if key in enabled_sensors and key in inverter:
-                entities.append(
-                    RockcoreSensor(coordinator, station_id, key, name, unit, device_class)
-                )
+        for description in SENSOR_DESCRIPTIONS:
+            if description.key in enabled_sensors and description.key in inverter:
+                entities.append(RockcoreSensor(coordinator, station_id, description))
 
     async_add_entities(entities, True)
 
 
 class RockcoreSensor(CoordinatorEntity, SensorEntity):
-    def __init__(self, coordinator, station_id, key, name, unit, device_class):
+    def __init__(
+        self,
+        coordinator: "RockcoreDataUpdateCoordinator",
+        station_id: int,
+        description: SensorEntityDescription,
+    ) -> None:
         super().__init__(coordinator)
         self.station_id = station_id
-        self.key = key
-        self._attr_name = f"Rockcore {station_id} {name}"
-        self._attr_unique_id = f"rockcore_{station_id}_{key}"
-        self._attr_native_unit_of_measurement = unit
-        self._attr_device_class = device_class
-        self._attr_state_class = None
-
-        if key in ["total_energy", "today_energy"]:
-            self._attr_device_class = SensorDeviceClass.ENERGY
-            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+        self.key = description.key
+        self.entity_description = description
+        self._attr_unique_id = f"rockcore_{station_id}_{description.key}"
+        self._attr_has_entity_name = True
 
     @property
     def state(self):
@@ -90,21 +165,6 @@ class RockcoreSensor(CoordinatorEntity, SensorEntity):
             except ValueError:
                 return None
         return value
-
-    @property
-    def state_class(self):
-        """Return the state class of this entity."""
-        if self.key in ["total_energy", "today_energy"]:
-            return SensorStateClass.TOTAL_INCREASING
-        return None
-        
-    @property
-    def extra_state_attributes(self):
-        """Return entity specific state attributes."""
-        attrs = {}
-        if self.key in ["total_energy", "today_energy"]:
-            attrs["state_class"] = "total_increasing"
-        return attrs
 
     # Removed async_update as it's handled by CoordinatorEntity
 
@@ -123,7 +183,9 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
         self.username = config[CONF_USERNAME]
         self.password = config[CONF_PASSWORD]
         self.station_ids = []
-        self.sensors = options.get(CONF_SENSORS, list(SENSOR_TYPES.keys()))
+        self.sensors = options.get(
+            CONF_SENSORS, [desc.key for desc in SENSOR_DESCRIPTIONS]
+        )
         update_seconds = options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
         super().__init__(
             hass,
@@ -234,9 +296,9 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
                 return {station_id: result}
             inv = inverters[0]
             result = {
-                k: inv.get(k, "0")
-                for k in SENSOR_TYPES.keys()
-                if k in inv and k in self.sensors
+                desc.key: inv.get(desc.key, "0")
+                for desc in SENSOR_DESCRIPTIONS
+                if desc.key in inv and desc.key in self.sensors
             }
             if "power_total" in self.sensors:
                 result["power_total"] = sum(
