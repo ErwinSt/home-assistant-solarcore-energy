@@ -1,5 +1,6 @@
 import logging
 from datetime import timedelta
+import asyncio
 
 import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -39,6 +40,7 @@ from .forecast import async_calculate_forecast
 _LOGGER = logging.getLogger(__name__)
 
 MAX_ENERGY_JUMP_KWH = 5
+REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
 
 SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
     SensorEntityDescription(
@@ -289,105 +291,110 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
     async def _login(self, session, username, password):
         url = LOGIN_ENDPOINT
         payload = {"loginType": "1", "loginName": username, "password": password}
-        async with session.post(url, json=payload) as resp:
-            try:
+        try:
+            async with session.post(url, json=payload, timeout=REQUEST_TIMEOUT) as resp:
                 resp.raise_for_status()
-            except aiohttp.ClientError as err:
-                _LOGGER.error("Login request failed: %s", err)
-                raise UpdateFailed(f"Login request failed: {err}") from err
-            data = await resp.json()
-            if "data" not in data or "token" not in data["data"]:
-                _LOGGER.error("Login response missing required fields: %s", data)
-                raise UpdateFailed("Missing token in login response")
-            return data["data"]["token"]
+                data = await resp.json()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            _LOGGER.error("Login request failed: %s", err)
+            raise UpdateFailed(f"Login request failed: {err}") from err
+        if "data" not in data or "token" not in data["data"]:
+            _LOGGER.error("Login response missing required fields: %s", data)
+            raise UpdateFailed("Missing token in login response")
+        return data["data"]["token"]
 
     async def _get_station_id(self, session, token):
         url = STATION_LIST_ENDPOINT
         headers = {"Authorization": token}
-        async with session.post(url, headers=headers, json={}) as resp:
-            try:
+        try:
+            async with session.post(url, headers=headers, json={}, timeout=REQUEST_TIMEOUT) as resp:
                 resp.raise_for_status()
-            except aiohttp.ClientError as err:
-                _LOGGER.error("Fetching station list failed: %s", err)
-                raise UpdateFailed(f"Fetching station list failed: {err}") from err
-            data = await resp.json()
-            stations = data.get("data")
-            if not stations:
-                _LOGGER.error("Station list response missing 'data': %s", data)
-                raise UpdateFailed("Missing stationId in station list response")
-            ids = [s.get("stationId") for s in stations if s.get("stationId") is not None]
-            if not ids:
-                _LOGGER.error("Station list response missing 'stationId': %s", data)
-                raise UpdateFailed("Missing stationId in station list response")
-            return ids
+                data = await resp.json()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            _LOGGER.error("Fetching station list failed: %s", err)
+            raise UpdateFailed(f"Fetching station list failed: {err}") from err
+        stations = data.get("data")
+        if not stations:
+            _LOGGER.error("Station list response missing 'data': %s", data)
+            raise UpdateFailed("Missing stationId in station list response")
+        ids = [s.get("stationId") for s in stations if s.get("stationId") is not None]
+        if not ids:
+            _LOGGER.error("Station list response missing 'stationId': %s", data)
+            raise UpdateFailed("Missing stationId in station list response")
+        return ids
 
     async def _get_power(self, session, token, station_id):
         url = REALTIME_POWER_ENDPOINT
         headers = {"Authorization": token}
         payload = {"stationId": station_id}
-        async with session.post(url, headers=headers, json=payload) as resp:
-            try:
+        try:
+            async with session.post(
+                url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT
+            ) as resp:
                 resp.raise_for_status()
-            except aiohttp.ClientError as err:
-                _LOGGER.error("Fetching power data failed: %s", err)
-                raise UpdateFailed(f"Fetching power data failed: {err}") from err
-            data = await resp.json()
-            inverters = data.get("data")
-            if inverters is None:
-                _LOGGER.error("Power data response missing 'data': %s", data)
-                raise UpdateFailed("Missing data in power response")
-            result = {}
-            if not inverters:
-                return {station_id: result}
-            inv = inverters[0]
-            result = {
-                desc.key: inv.get(desc.key, "0")
-                for desc in SENSOR_DESCRIPTIONS
-                if desc.key in inv and desc.key in self.sensors
-            }
-            if "power_total" in self.sensors:
-                def _parse_power(value: str) -> float:
-                    """Return power in watts from a string value.
-
-                    Values may come in formats like ``"123W"`` or ``"0.5kW"``.
-                    Invalid or missing values are treated as ``0``.
-                    """
-
-                    if value is None:
-                        return 0.0
-                    text = str(value).strip().lower()
-                    multiplier = 1.0
-                    if text.endswith("kw"):
-                        multiplier = 1000.0
-                        text = text[:-2]
-                    elif text.endswith("w"):
-                        text = text[:-1]
-                    try:
-                        return float(text) * multiplier
-                    except (TypeError, ValueError):
-                        return 0.0
-
-                result["power_total"] = sum(
-                    _parse_power(inv.get(k, "0")) for k in ["power1", "power2"]
-                )
+                data = await resp.json()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            _LOGGER.error("Fetching power data failed: %s", err)
+            raise UpdateFailed(f"Fetching power data failed: {err}") from err
+        inverters = data.get("data")
+        if inverters is None:
+            _LOGGER.error("Power data response missing 'data': %s", data)
+            raise UpdateFailed("Missing data in power response")
+        result = {}
+        if not inverters:
             return {station_id: result}
+        inv = inverters[0]
+        result = {
+            desc.key: inv.get(desc.key, "0")
+            for desc in SENSOR_DESCRIPTIONS
+            if desc.key in inv and desc.key in self.sensors
+        }
+        if "power_total" in self.sensors:
+
+            def _parse_power(value: str) -> float:
+                """Return power in watts from a string value.
+
+                Values may come in formats like ``"123W"`` or ``"0.5kW"``.
+                Invalid or missing values are treated as ``0``.
+                """
+
+                if value is None:
+                    return 0.0
+                text = str(value).strip().lower()
+                multiplier = 1.0
+                if text.endswith("kw"):
+                    multiplier = 1000.0
+                    text = text[:-2]
+                elif text.endswith("w"):
+                    text = text[:-1]
+                try:
+                    return float(text) * multiplier
+                except (TypeError, ValueError):
+                    return 0.0
+
+            result["power_total"] = sum(
+                _parse_power(inv.get(k, "0")) for k in ["power1", "power2"]
+            )
+        return {station_id: result}
 
     async def _get_total_energy(self, session, token, station_id):
         url = STATION_INFO_ENDPOINT
         headers = {"Authorization": token}
         payload = {"stationId": station_id}
-        async with session.post(url, headers=headers, json=payload) as resp:
-            try:
+        try:
+            async with session.post(
+                url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT
+            ) as resp:
                 resp.raise_for_status()
-            except aiohttp.ClientError as err:
-                _LOGGER.error("Fetching energy data failed: %s", err)
-                raise UpdateFailed(f"Fetching energy data failed: {err}") from err
-            data = await resp.json()
-            info = data.get("data")
-            if info is None:
-                _LOGGER.error("Energy data response missing 'data': %s", data)
-                raise UpdateFailed("Missing data in energy response")
-            return {
-                "total_energy": float(info.get("totalEnergy", "0") or 0),
-                "today_energy": float(info.get("todayEnergy", "0") or 0),
-            }
+                data = await resp.json()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            _LOGGER.error("Fetching energy data failed: %s", err)
+            raise UpdateFailed(f"Fetching energy data failed: {err}") from err
+        info = data.get("data")
+        if info is None:
+            _LOGGER.error("Energy data response missing 'data': %s", data)
+            raise UpdateFailed("Missing data in energy response")
+        return {
+            "total_energy": float(info.get("totalEnergy", "0") or 0),
+            "today_energy": float(info.get("todayEnergy", "0") or 0),
+        }
