@@ -3,6 +3,7 @@ from datetime import timedelta
 
 import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -127,6 +128,7 @@ async def async_setup_entry(
     options = entry.options
     coordinator = RockcoreDataUpdateCoordinator(hass, entry.data, options)
     await coordinator.async_config_entry_first_refresh()
+    hass.data[DOMAIN][entry.entry_id]["coordinator"] = coordinator
 
     enabled_sensors = options.get(
         CONF_SENSORS, [desc.key for desc in SENSOR_DESCRIPTIONS]
@@ -189,6 +191,7 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
         )
         self.session = async_get_clientsession(hass)
         update_seconds = options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+        self.failed_updates = 0
         super().__init__(
             hass,
             _LOGGER,
@@ -237,8 +240,20 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
                 inverter.update(energy)
                 data[station_id] = inverter
 
+            self.failed_updates = 0
+            ir.async_delete_issue(self.hass, DOMAIN, "connection_error")
             return data
         except Exception as err:
+            self.failed_updates += 1
+            if self.failed_updates >= 3:
+                ir.async_create_issue(
+                    self.hass,
+                    DOMAIN,
+                    "connection_error",
+                    is_fixable=False,
+                    severity=ir.IssueSeverity.ERROR,
+                    translation_key="connection_error",
+                )
             raise UpdateFailed(f"Error updating data: {err}")
 
     async def _login(self, session, username, password):

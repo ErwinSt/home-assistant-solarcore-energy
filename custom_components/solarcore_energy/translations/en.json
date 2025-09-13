@@ -22,5 +22,11 @@
             "total_energy": {"name": "Total Energy"},
             "today_energy": {"name": "Today Energy"}
         }
+    },
+    "issues": {
+        "connection_error": {
+            "title": "Connection failed",
+            "description": "Solarcore Energy has repeatedly failed to connect."
+        }
     }
 }
