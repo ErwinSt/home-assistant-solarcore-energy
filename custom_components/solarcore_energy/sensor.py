@@ -24,13 +24,16 @@ from .const import (
     CONF_SENSORS,
     CONF_UPDATE_INTERVAL,
     CONF_USERNAME,
+    CONF_COST_PER_KWH,
     DEFAULT_UPDATE_INTERVAL,
+    DEFAULT_COST_PER_KWH,
     DOMAIN,
     LOGIN_ENDPOINT,
     REALTIME_POWER_ENDPOINT,
     STATION_INFO_ENDPOINT,
     STATION_LIST_ENDPOINT,
 )
+from .forecast import async_calculate_forecast
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -120,7 +123,23 @@ SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
         native_unit_of_measurement="Wh",
         state_class=SensorStateClass.TOTAL_INCREASING,
     ),
+    SensorEntityDescription(
+        key="forecast_energy",
+        translation_key="forecast_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement="kWh",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="estimated_savings",
+        translation_key="estimated_savings",
+        device_class=SensorDeviceClass.MONETARY,
+        native_unit_of_measurement="€",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
 ]
+
+SENSOR_TYPES = {desc.key: desc for desc in SENSOR_DESCRIPTIONS}
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
@@ -189,6 +208,9 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
         self.sensors = options.get(
             CONF_SENSORS, [desc.key for desc in SENSOR_DESCRIPTIONS]
         )
+        self.cost_per_kwh = options.get(
+            CONF_COST_PER_KWH, DEFAULT_COST_PER_KWH
+        )
         self.session = async_get_clientsession(hass)
         update_seconds = options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
         self.failed_updates = 0
@@ -238,6 +260,11 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
 
                 inverter = power_data.get(station_id, {})
                 inverter.update(energy)
+                forecast = await async_calculate_forecast(
+                    inverter, self.cost_per_kwh
+                )
+                forecast = {k: v for k, v in forecast.items() if k in self.sensors}
+                inverter.update(forecast)
                 data[station_id] = inverter
 
             self.failed_updates = 0

@@ -8,7 +8,9 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .const import (
     CONF_SENSORS,
     CONF_UPDATE_INTERVAL,
+    CONF_COST_PER_KWH,
     DEFAULT_UPDATE_INTERVAL,
+    DEFAULT_COST_PER_KWH,
     DOMAIN,
     LOGIN_ENDPOINT,
 )
@@ -76,6 +78,10 @@ class RockcoreOptionsFlow(config_entries.OptionsFlow):
                         CONF_UPDATE_INTERVAL,
                         default=options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
                     ): vol.All(int, vol.Range(min=1)),
+                    vol.Required(
+                        CONF_COST_PER_KWH,
+                        default=options.get(CONF_COST_PER_KWH, DEFAULT_COST_PER_KWH),
+                    ): vol.Coerce(float),
                     vol.Optional(
                         CONF_SENSORS,
                         default=options.get(CONF_SENSORS, list(SENSOR_TYPES.keys())),

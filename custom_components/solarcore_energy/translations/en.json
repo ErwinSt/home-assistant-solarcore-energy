@@ -20,7 +20,18 @@
             "gridvolc": {"name": "Grid Voltage"},
             "temp": {"name": "Temperature"},
             "total_energy": {"name": "Total Energy"},
-            "today_energy": {"name": "Today Energy"}
+            "today_energy": {"name": "Today Energy"},
+            "forecast_energy": {"name": "Forecast Energy"},
+            "estimated_savings": {"name": "Estimated Savings"}
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "cost_per_kwh": "Cost per kWh"
+                }
+            }
         }
     },
     "issues": {
