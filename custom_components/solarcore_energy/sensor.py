@@ -2,6 +2,7 @@ import logging
 from datetime import timedelta
 
 import aiohttp
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -186,6 +187,7 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
         self.sensors = options.get(
             CONF_SENSORS, [desc.key for desc in SENSOR_DESCRIPTIONS]
         )
+        self.session = async_get_clientsession(hass)
         update_seconds = options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
         super().__init__(
             hass,
@@ -196,48 +198,46 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         try:
-            async with aiohttp.ClientSession() as session:
-                token = await self._login(session, self.username, self.password)
-                station_ids = await self._get_station_id(session, token)
-                self.station_ids = station_ids
-                data = {}
-                for station_id in station_ids:
-                    power_data = await self._get_power(session, token, station_id)
-                    energy = await self._get_total_energy(session, token, station_id)
-                    energy = {
-                        k: v for k, v in energy.items() if k in self.sensors
-                    }
+            session = self.session
+            token = await self._login(session, self.username, self.password)
+            station_ids = await self._get_station_id(session, token)
+            self.station_ids = station_ids
+            data = {}
+            for station_id in station_ids:
+                power_data = await self._get_power(session, token, station_id)
+                energy = await self._get_total_energy(session, token, station_id)
+                energy = {k: v for k, v in energy.items() if k in self.sensors}
 
-                    previous = self.data.get(station_id, {}) if self.data else {}
-                    for key, new_val in energy.items():
-                        prev_val = previous.get(key)
-                        if prev_val is None:
-                            continue
-                        diff = new_val - prev_val
-                        if key == "total_energy" and diff < 0:
-                            _LOGGER.warning(
-                                "Ignoring decrease in %s for station %s: %s -> %s",
-                                key,
-                                station_id,
-                                prev_val,
-                                new_val,
-                            )
-                            energy[key] = prev_val
-                        elif diff > MAX_ENERGY_JUMP_KWH:
-                            _LOGGER.warning(
-                                "Ignoring unrealistic jump in %s for station %s: %s -> %s",
-                                key,
-                                station_id,
-                                prev_val,
-                                new_val,
-                            )
-                            energy[key] = prev_val
+                previous = self.data.get(station_id, {}) if self.data else {}
+                for key, new_val in energy.items():
+                    prev_val = previous.get(key)
+                    if prev_val is None:
+                        continue
+                    diff = new_val - prev_val
+                    if key == "total_energy" and diff < 0:
+                        _LOGGER.warning(
+                            "Ignoring decrease in %s for station %s: %s -> %s",
+                            key,
+                            station_id,
+                            prev_val,
+                            new_val,
+                        )
+                        energy[key] = prev_val
+                    elif diff > MAX_ENERGY_JUMP_KWH:
+                        _LOGGER.warning(
+                            "Ignoring unrealistic jump in %s for station %s: %s -> %s",
+                            key,
+                            station_id,
+                            prev_val,
+                            new_val,
+                        )
+                        energy[key] = prev_val
 
-                    inverter = power_data.get(station_id, {})
-                    inverter.update(energy)
-                    data[station_id] = inverter
+                inverter = power_data.get(station_id, {})
+                inverter.update(energy)
+                data[station_id] = inverter
 
-                return data
+            return data
         except Exception as err:
             raise UpdateFailed(f"Error updating data: {err}")
 
