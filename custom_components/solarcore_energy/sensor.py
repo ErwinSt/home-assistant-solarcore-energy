@@ -11,7 +11,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfCurrency, UnitOfTemperature
+from homeassistant.const import UnitOfTemperature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -138,7 +138,7 @@ SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
         key="estimated_savings",
         translation_key="estimated_savings",
         device_class=SensorDeviceClass.MONETARY,
-        native_unit_of_measurement=UnitOfCurrency.EURO,
+        native_unit_of_measurement="€",
         state_class=SensorStateClass.MEASUREMENT,
     ),
 ]
