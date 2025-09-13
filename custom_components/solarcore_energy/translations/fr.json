@@ -20,7 +20,18 @@
             "gridvolc": {"name": "Tension du réseau"},
             "temp": {"name": "Température"},
             "total_energy": {"name": "Énergie totale"},
-            "today_energy": {"name": "Énergie du jour"}
+            "today_energy": {"name": "Énergie du jour"},
+            "forecast_energy": {"name": "Énergie prévue"},
+            "estimated_savings": {"name": "Économies estimées"}
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "cost_per_kwh": "Coût par kWh"
+                }
+            }
         }
     },
     "issues": {
