@@ -22,6 +22,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 SCAN_INTERVAL = timedelta(seconds=30)
+MAX_ENERGY_JUMP_KWH = 5
 
 SENSOR_TYPES = {
     "power_total": ["Total Power", "W", SensorDeviceClass.POWER],
@@ -118,6 +119,32 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
                 station_id = await self._get_station_id(session, token)
                 data = await self._get_power(session, token, station_id)
                 energy = await self._get_total_energy(session, token, station_id)
+
+                previous = self.data.get(station_id, {}) if self.data else {}
+                for key, new_val in energy.items():
+                    prev_val = previous.get(key)
+                    if prev_val is None:
+                        continue
+                    diff = new_val - prev_val
+                    if key == "total_energy" and diff < 0:
+                        _LOGGER.warning(
+                            "Ignoring decrease in %s for station %s: %s -> %s",
+                            key,
+                            station_id,
+                            prev_val,
+                            new_val,
+                        )
+                        energy[key] = prev_val
+                    elif diff > MAX_ENERGY_JUMP_KWH:
+                        _LOGGER.warning(
+                            "Ignoring unrealistic jump in %s for station %s: %s -> %s",
+                            key,
+                            station_id,
+                            prev_val,
+                            new_val,
+                        )
+                        energy[key] = prev_val
+
                 data[station_id].update(energy)
                 return data
         except Exception as err:
