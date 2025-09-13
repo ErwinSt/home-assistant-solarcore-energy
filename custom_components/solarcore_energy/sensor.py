@@ -120,7 +120,7 @@ SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
         key="today_energy",
         translation_key="today_energy",
         device_class=SensorDeviceClass.ENERGY,
-        native_unit_of_measurement="Wh",
+        native_unit_of_measurement="kWh",
         state_class=SensorStateClass.TOTAL_INCREASING,
     ),
     SensorEntityDescription(
