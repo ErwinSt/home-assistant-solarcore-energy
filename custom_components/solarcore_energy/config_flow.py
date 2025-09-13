@@ -33,9 +33,17 @@ class RockcoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
             try:
                 async with session.post(LOGIN_ENDPOINT, json=payload) as resp:
+                    resp.raise_for_status()
                     data = await resp.json()
                     _ = data["data"]["token"]
-            except (aiohttp.ClientError, KeyError, ValueError):
+            except aiohttp.ClientResponseError as err:
+                if err.status in (401, 403):
+                    errors["base"] = "auth"
+                else:
+                    errors["base"] = "cannot_connect"
+            except aiohttp.ClientError:
+                errors["base"] = "cannot_connect"
+            except (KeyError, ValueError):
                 errors["base"] = "auth"
             else:
                 return self.async_create_entry(
