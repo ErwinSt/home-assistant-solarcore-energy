@@ -394,7 +394,29 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
         if info is None:
             _LOGGER.error("Energy data response missing 'data': %s", data)
             raise UpdateFailed("Missing data in energy response")
+        
+        def _parse_energy(value: str) -> float:
+            """Return energy in kWh from a string value.
+
+            Values may come in formats like ``"1.2kWh"`` or ``"500Wh"``.
+            Invalid or missing values are treated as ``0``.
+            """
+
+            if value is None:
+                return 0.0
+            text = str(value).strip().lower()
+            multiplier = 1.0
+            if text.endswith("kwh"):
+                text = text[:-3]
+            elif text.endswith("wh"):
+                multiplier = 0.001
+                text = text[:-2]
+            try:
+                return float(text) * multiplier
+            except (TypeError, ValueError):
+                return 0.0
+
         return {
-            "total_energy": float(info.get("totalEnergy", "0") or 0),
-            "today_energy": float(info.get("todayEnergy", "0") or 0),
+            "total_energy": _parse_energy(info.get("totalEnergy")),
+            "today_energy": _parse_energy(info.get("todayEnergy")),
         }
