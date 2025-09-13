@@ -4,7 +4,7 @@ Monitor your Rockcore-based solar station production in Home Assistant.
 
 - Real-time power (W)
 - Voltage, current, temperature
-- Daily & total solar energy (Wh/kWh)
+- Daily & total solar energy (kWh)
 - Compatible with Home Assistant Energy Dashboard ✅
 
 Tested on:
