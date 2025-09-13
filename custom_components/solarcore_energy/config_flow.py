@@ -13,8 +13,8 @@ from .const import (
     DEFAULT_COST_PER_KWH,
     DOMAIN,
     LOGIN_ENDPOINT,
+    SENSOR_KEYS,
 )
-from .sensor import SENSOR_TYPES
 
 
 class RockcoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -95,8 +95,8 @@ class RockcoreOptionsFlow(config_entries.OptionsFlow):
                     ): vol.Coerce(float),
                     vol.Optional(
                         CONF_SENSORS,
-                        default=options.get(CONF_SENSORS, list(SENSOR_TYPES.keys())),
-                    ): cv.multi_select(list(SENSOR_TYPES.keys())),
+                        default=options.get(CONF_SENSORS, SENSOR_KEYS),
+                    ): cv.multi_select(SENSOR_KEYS),
                 }
             ),
         )
