@@ -44,7 +44,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     await coordinator.async_config_entry_first_refresh()
 
     entities = []
-    for station_id, inverter in coordinator.data.items():
+    for station_id in coordinator.station_ids:
+        inverter = coordinator.data.get(station_id, {})
         for key, (name, unit, device_class) in SENSOR_TYPES.items():
             if key in inverter:
                 entities.append(RockcoreSensor(coordinator, station_id, key, name, unit, device_class))
@@ -110,42 +111,49 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, config):
         self.username = config[CONF_USERNAME]
         self.password = config[CONF_PASSWORD]
+        self.station_ids = []
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=SCAN_INTERVAL)
 
     async def _async_update_data(self):
         try:
             async with aiohttp.ClientSession() as session:
                 token = await self._login(session, self.username, self.password)
-                station_id = await self._get_station_id(session, token)
-                data = await self._get_power(session, token, station_id)
-                energy = await self._get_total_energy(session, token, station_id)
+                station_ids = await self._get_station_id(session, token)
+                self.station_ids = station_ids
+                data = {}
+                for station_id in station_ids:
+                    power_data = await self._get_power(session, token, station_id)
+                    energy = await self._get_total_energy(session, token, station_id)
 
-                previous = self.data.get(station_id, {}) if self.data else {}
-                for key, new_val in energy.items():
-                    prev_val = previous.get(key)
-                    if prev_val is None:
-                        continue
-                    diff = new_val - prev_val
-                    if key == "total_energy" and diff < 0:
-                        _LOGGER.warning(
-                            "Ignoring decrease in %s for station %s: %s -> %s",
-                            key,
-                            station_id,
-                            prev_val,
-                            new_val,
-                        )
-                        energy[key] = prev_val
-                    elif diff > MAX_ENERGY_JUMP_KWH:
-                        _LOGGER.warning(
-                            "Ignoring unrealistic jump in %s for station %s: %s -> %s",
-                            key,
-                            station_id,
-                            prev_val,
-                            new_val,
-                        )
-                        energy[key] = prev_val
+                    previous = self.data.get(station_id, {}) if self.data else {}
+                    for key, new_val in energy.items():
+                        prev_val = previous.get(key)
+                        if prev_val is None:
+                            continue
+                        diff = new_val - prev_val
+                        if key == "total_energy" and diff < 0:
+                            _LOGGER.warning(
+                                "Ignoring decrease in %s for station %s: %s -> %s",
+                                key,
+                                station_id,
+                                prev_val,
+                                new_val,
+                            )
+                            energy[key] = prev_val
+                        elif diff > MAX_ENERGY_JUMP_KWH:
+                            _LOGGER.warning(
+                                "Ignoring unrealistic jump in %s for station %s: %s -> %s",
+                                key,
+                                station_id,
+                                prev_val,
+                                new_val,
+                            )
+                            energy[key] = prev_val
 
-                data[station_id].update(energy)
+                    inverter = power_data.get(station_id, {})
+                    inverter.update(energy)
+                    data[station_id] = inverter
+
                 return data
         except Exception as err:
             raise UpdateFailed(f"Error updating data: {err}")
@@ -176,10 +184,14 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
                 raise UpdateFailed(f"Fetching station list failed: {err}") from err
             data = await resp.json()
             stations = data.get("data")
-            if not stations or "stationId" not in stations[0]:
-                _LOGGER.error("Station list response missing 'data' or 'stationId': %s", data)
+            if not stations:
+                _LOGGER.error("Station list response missing 'data': %s", data)
                 raise UpdateFailed("Missing stationId in station list response")
-            return stations[0]["stationId"]
+            ids = [s.get("stationId") for s in stations if s.get("stationId") is not None]
+            if not ids:
+                _LOGGER.error("Station list response missing 'stationId': %s", data)
+                raise UpdateFailed("Missing stationId in station list response")
+            return ids
 
     async def _get_power(self, session, token, station_id):
         url = REALTIME_POWER_ENDPOINT
