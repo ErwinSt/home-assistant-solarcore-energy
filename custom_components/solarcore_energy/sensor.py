@@ -36,6 +36,7 @@ from .const import (
     STATION_LIST_ENDPOINT,
 )
 from .forecast import async_calculate_forecast
+from .util import parse_value
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -184,14 +185,7 @@ class RockcoreSensor(CoordinatorEntity, SensorEntity):
         """Return the value reported by the sensor in its native unit."""
 
         value = self.coordinator.data.get(self.station_id, {}).get(self.key)
-        if isinstance(value, str):
-            for suffix in ["W", "V", "A", "Hz", "℃", "°C", "kWh", "Wh"]:
-                value = value.replace(suffix, "")
-            try:
-                return float(value)
-            except ValueError:
-                return None
-        return value
+        return parse_value(value)
 
     # Removed async_update as it's handled by CoordinatorEntity
 
