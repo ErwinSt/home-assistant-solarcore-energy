@@ -9,7 +9,7 @@
     "@ErwinSt"
   ],
   "requirements": [],
-  "version": "1.1.0",
+  "version": "1.2.0",
   "config_flow": true,
   "integration_type": "hub",
   "is_built_in": false,

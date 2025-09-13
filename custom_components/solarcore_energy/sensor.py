@@ -1,5 +1,5 @@
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 import asyncio
 
 import aiohttp
@@ -36,7 +36,7 @@ from .const import (
     STATION_LIST_ENDPOINT,
 )
 from .forecast import async_calculate_forecast
-from .util import parse_value
+from .util import parse_value, parse_frequency
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -142,6 +142,38 @@ SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
         native_unit_of_measurement="€",
         state_class=SensorStateClass.TOTAL,
     ),
+    # Additional sensors from API data
+    SensorEntityDescription(
+        key="station_capacity",
+        translation_key="station_capacity",
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement="kW",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="component_count",
+        translation_key="component_count",
+        native_unit_of_measurement="",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="inverter_efficiency",
+        translation_key="inverter_efficiency",
+        native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="power_imbalance",
+        translation_key="power_imbalance",
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement="W",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="last_update_time",
+        translation_key="last_update_time",
+        device_class=SensorDeviceClass.TIMESTAMP,
+    ),
 ]
 
 SENSOR_TYPES = {desc.key: desc for desc in SENSOR_DESCRIPTIONS}
@@ -186,7 +218,47 @@ class RockcoreSensor(CoordinatorEntity, SensorEntity):
         """Return the value reported by the sensor in its native unit."""
 
         value = self.coordinator.data.get(self.station_id, {}).get(self.key)
+
+        # Special handling for frequency sensor
+        if self.key == "gridseq":
+            return parse_frequency(value)
+
         return parse_value(value)
+
+    @property
+    def extra_state_attributes(self):
+        """Return additional state attributes."""
+        data = self.coordinator.data.get(self.station_id, {})
+        attributes = {}
+
+        # Add common attributes for all sensors
+        if "time" in data:
+            attributes["last_api_update"] = data["time"]
+
+        if "status" in data:
+            attributes["inverter_status_code"] = data["status"]
+
+        if "cstatus" in data:
+            attributes["connection_status_code"] = data["cstatus"]
+
+        # Add specific attributes based on sensor type
+        if self.key in ["power1", "power2", "power_total"]:
+            attributes["smu_id"] = data.get("smuId")
+            attributes["inverter_model"] = data.get("invModelId")
+            attributes["smu_model"] = data.get("smuModelId")
+
+        elif self.key == "temp":
+            if "temp" in data:
+                temp_val = parse_value(data["temp"])
+                if temp_val and temp_val > 60:
+                    attributes["temperature_warning"] = "High temperature detected"
+
+        elif self.key in ["total_energy", "today_energy"]:
+            attributes["energy_unit"] = "kWh"
+            if "capacity" in data:
+                attributes["station_capacity_kw"] = parse_value(data["capacity"])
+
+        return attributes
 
     # Removed async_update as it's handled by CoordinatorEntity
 
@@ -270,6 +342,12 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
                 )
                 forecast = {k: v for k, v in forecast.items() if k in self.sensors}
                 inverter.update(forecast)
+
+                # Add calculated sensors
+                calculated = await self._calculate_derived_sensors(station_id, inverter, energy)
+                calculated = {k: v for k, v in calculated.items() if k in self.sensors}
+                inverter.update(calculated)
+
                 data[station_id] = inverter
 
             self.failed_updates = 0
@@ -383,4 +461,46 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
         return {
             "total_energy": parse_value(info.get("totalEnergy")) or 0.0,
             "today_energy": parse_value(info.get("todayEnergy")) or 0.0,
+            "capacity": info.get("capacity"),
+            "stationCount": info.get("stationCount"),
         }
+
+    async def _calculate_derived_sensors(self, station_id: int, inverter_data: dict, station_info: dict) -> dict:
+        """Calculate derived sensors from API data."""
+        calculated = {}
+
+        # Station capacity (from station info API)
+        if "capacity" in station_info:
+            capacity = parse_value(station_info["capacity"]) or 0.0
+            calculated["station_capacity"] = capacity
+
+        # Component count (from inverter API)
+        if "cmpCount" in inverter_data:
+            calculated["component_count"] = inverter_data.get("cmpCount", 0)
+
+        # Inverter efficiency (current power vs capacity)
+        power_total = inverter_data.get("power_total", 0)
+        if "capacity" in station_info and power_total:
+            capacity = parse_value(station_info["capacity"]) or 0.0
+            if capacity > 0:
+                # Convert capacity from kW to W for comparison
+                capacity_w = capacity * 1000
+                efficiency = min((power_total / capacity_w) * 100, 100)
+                calculated["inverter_efficiency"] = round(efficiency, 2)
+
+        # Power imbalance (difference between power1 and power2)
+        power1 = parse_value(inverter_data.get("power1", "0")) or 0.0
+        power2 = parse_value(inverter_data.get("power2", "0")) or 0.0
+        calculated["power_imbalance"] = abs(power1 - power2)
+
+        # Last update time (from inverter time field)
+        if "time" in inverter_data:
+            time_str = inverter_data["time"]
+            try:
+                # Parse format: "2025-09-13 22:34:10"
+                update_time = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+                calculated["last_update_time"] = update_time.isoformat()
+            except (ValueError, TypeError):
+                pass
+
+        return calculated

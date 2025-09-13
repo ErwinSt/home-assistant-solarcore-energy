@@ -26,6 +26,11 @@ SENSOR_KEYS = [
     "today_energy",
     "forecast_energy",
     "estimated_savings",
+    "station_capacity",
+    "component_count",
+    "inverter_efficiency",
+    "power_imbalance",
+    "last_update_time",
 ]
 
 BASE_URL = "http://gf.rockcore-energy.com:9721/rcmi-manager"

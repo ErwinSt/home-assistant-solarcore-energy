@@ -44,3 +44,21 @@ def parse_value(value: Any) -> Optional[float]:
         return float(text)
     except (TypeError, ValueError):
         return None
+
+
+def parse_frequency(value: Any) -> Optional[float]:
+    """Parse frequency value from API.
+
+    The Rockcore API returns frequency in 1/100 Hz format.
+    For example: 5003 means 50.03 Hz
+    """
+    if value is None:
+        return None
+
+    # First parse as normal value
+    freq_raw = parse_value(value)
+    if freq_raw is None:
+        return None
+
+    # Convert from 1/100 Hz to Hz
+    return freq_raw / 100.0

@@ -22,7 +22,19 @@
             "total_energy": {"name": "Énergie totale"},
             "today_energy": {"name": "Énergie du jour"},
             "forecast_energy": {"name": "Énergie prévue"},
-            "estimated_savings": {"name": "Économies estimées"}
+            "estimated_savings": {"name": "Économies estimées"},
+            "station_capacity": {"name": "Capacité de la station"},
+            "component_count": {"name": "Nombre de composants"},
+            "inverter_efficiency": {"name": "Efficacité de l'onduleur"},
+            "power_imbalance": {"name": "Déséquilibre de puissance"},
+            "last_update_time": {"name": "Dernière mise à jour"}
+        },
+        "binary_sensor": {
+            "inverter_status": {"name": "Statut de l'onduleur"},
+            "grid_connected": {"name": "Réseau connecté"},
+            "production_active": {"name": "Production active"},
+            "temperature_alert": {"name": "Alerte température"},
+            "grid_frequency_ok": {"name": "Fréquence réseau OK"}
         }
     },
     "options": {

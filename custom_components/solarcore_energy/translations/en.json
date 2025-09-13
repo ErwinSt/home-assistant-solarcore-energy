@@ -16,13 +16,25 @@
             "vol2": {"name": "Voltage 2"},
             "current1": {"name": "Current 1"},
             "current2": {"name": "Current 2"},
-            "gridseq": {"name": "Grid Freq"},
+            "gridseq": {"name": "Grid Frequency"},
             "gridvolc": {"name": "Grid Voltage"},
             "temp": {"name": "Temperature"},
             "total_energy": {"name": "Total Energy"},
             "today_energy": {"name": "Today Energy"},
             "forecast_energy": {"name": "Forecast Energy"},
-            "estimated_savings": {"name": "Estimated Savings"}
+            "estimated_savings": {"name": "Estimated Savings"},
+            "station_capacity": {"name": "Station Capacity"},
+            "component_count": {"name": "Component Count"},
+            "inverter_efficiency": {"name": "Inverter Efficiency"},
+            "power_imbalance": {"name": "Power Imbalance"},
+            "last_update_time": {"name": "Last Update"}
+        },
+        "binary_sensor": {
+            "inverter_status": {"name": "Inverter Status"},
+            "grid_connected": {"name": "Grid Connected"},
+            "production_active": {"name": "Production Active"},
+            "temperature_alert": {"name": "Temperature Alert"},
+            "grid_frequency_ok": {"name": "Grid Frequency OK"}
         }
     },
     "options": {
