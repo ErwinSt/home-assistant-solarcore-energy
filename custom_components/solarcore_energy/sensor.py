@@ -344,11 +344,29 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
                 if desc.key in inv and desc.key in self.sensors
             }
             if "power_total" in self.sensors:
+                def _parse_power(value: str) -> float:
+                    """Return power in watts from a string value.
+
+                    Values may come in formats like ``"123W"`` or ``"0.5kW"``.
+                    Invalid or missing values are treated as ``0``.
+                    """
+
+                    if value is None:
+                        return 0.0
+                    text = str(value).strip().lower()
+                    multiplier = 1.0
+                    if text.endswith("kw"):
+                        multiplier = 1000.0
+                        text = text[:-2]
+                    elif text.endswith("w"):
+                        text = text[:-1]
+                    try:
+                        return float(text) * multiplier
+                    except (TypeError, ValueError):
+                        return 0.0
+
                 result["power_total"] = sum(
-                    int(inv.get(k, "0W").replace("W", ""))
-                    if inv.get(k, "0W").replace("W", "").isdigit()
-                    else 0
-                    for k in ["power1", "power2"]
+                    _parse_power(inv.get(k, "0")) for k in ["power1", "power2"]
                 )
             return {station_id: result}
 
