@@ -2,8 +2,8 @@
     "config": {
         "step": {
             "user": {
-                "title": "Solarcore Energy",
-                "description": "Entrez vos identifiants Solarcore"
+                "title": "Rockcore Solar",
+                "description": "Entrez vos identifiants Rockcore"
             }
         }
     },
@@ -37,7 +37,7 @@
     "issues": {
         "connection_error": {
             "title": "Échecs de connexion",
-            "description": "Solarcore Energy rencontre des échecs de connexion répétés."
+            "description": "Rockcore Solar rencontre des échecs de connexion répétés."
         }
     }
 }

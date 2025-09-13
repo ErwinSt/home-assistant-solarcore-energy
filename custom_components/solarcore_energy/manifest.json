@@ -1,7 +1,7 @@
 {
   "domain": "solarcore_energy",
-  "name": "Solarcore Energy",
-  "description": "A custom integration for Solarcore Energy",
+  "name": "Rockcore Solar",
+  "description": "A custom integration for Rockcore solar controllers",
   "configuration_url": "https://github.com/ErwinSt/home-assistant-solarcore-energy",
   "documentation": "https://github.com/ErwinSt/home-assistant-solarcore-energy",
   "dependencies": [],

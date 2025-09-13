@@ -197,7 +197,7 @@ class RockcoreSensor(CoordinatorEntity, SensorEntity):
         )
         return {
             "identifiers": {(DOMAIN, self.station_id)},
-            "name": f"Solarcore {station_name}",
+            "name": f"Rockcore {station_name}",
             "manufacturer": "Rockcore Energy",
             "model": "Solar Inverter",
             "sw_version": "1.0.0",

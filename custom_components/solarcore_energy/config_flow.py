@@ -49,7 +49,7 @@ class RockcoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 return self.async_create_entry(
-                    title="Solarcore Energy", data=user_input
+                    title="Rockcore Solar", data=user_input
                 )
 
         return self.async_show_form(
@@ -62,7 +62,7 @@ class RockcoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
             description_placeholders={
-                "info": "Entrez vos identifiants Solarcore"
+                "info": "Entrez vos identifiants Rockcore"
             },
         )
 

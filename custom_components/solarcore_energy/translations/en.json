@@ -2,8 +2,8 @@
     "config": {
         "step": {
             "user": {
-                "title": "Solarcore Energy",
-                "description": "Enter your Solarcore account credentials"
+                "title": "Rockcore Solar",
+                "description": "Enter your Rockcore account credentials"
             }
         }
     },
@@ -37,7 +37,7 @@
     "issues": {
         "connection_error": {
             "title": "Connection failed",
-            "description": "Solarcore Energy has repeatedly failed to connect."
+            "description": "Rockcore Solar has repeatedly failed to connect."
         }
     }
 }
