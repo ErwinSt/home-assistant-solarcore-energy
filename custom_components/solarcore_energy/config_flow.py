@@ -19,7 +19,6 @@ from .const import (
 
 class RockcoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
     async def async_step_user(self, user_input=None):
         errors = {}
@@ -50,7 +49,7 @@ class RockcoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 return self.async_create_entry(
-                    title="Rockcore Solar", data=user_input
+                    title="Solarcore Energy", data=user_input
                 )
 
         return self.async_show_form(
@@ -63,7 +62,7 @@ class RockcoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
             description_placeholders={
-                "info": "Entrez vos identifiants Rockcore"
+                "info": "Entrez vos identifiants Solarcore"
             },
         )
 
