@@ -1,10 +1,18 @@
 import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN, LOGIN_ENDPOINT
+from .const import (
+    CONF_SENSORS,
+    CONF_UPDATE_INTERVAL,
+    DEFAULT_UPDATE_INTERVAL,
+    DOMAIN,
+    LOGIN_ENDPOINT,
+)
+from .sensor import SENSOR_TYPES
 
 
 class RockcoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -44,5 +52,35 @@ class RockcoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "info": "Entrez vos identifiants Rockcore"
             },
+        )
+
+    @staticmethod
+    def async_get_options_flow(config_entry):
+        return RockcoreOptionsFlow(config_entry)
+
+
+class RockcoreOptionsFlow(config_entries.OptionsFlow):
+    def __init__(self, config_entry):
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        options = self.config_entry.options
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_UPDATE_INTERVAL,
+                        default=options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
+                    ): vol.All(int, vol.Range(min=1)),
+                    vol.Optional(
+                        CONF_SENSORS,
+                        default=options.get(CONF_SENSORS, list(SENSOR_TYPES.keys())),
+                    ): cv.multi_select(list(SENSOR_TYPES.keys())),
+                }
+            ),
         )
 
