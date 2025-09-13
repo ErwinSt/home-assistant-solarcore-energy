@@ -10,7 +10,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfCurrency
+from homeassistant.const import UnitOfCurrency, UnitOfTemperature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -107,7 +107,7 @@ SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
         key="temp",
         translation_key="temp",
         device_class=SensorDeviceClass.TEMPERATURE,
-        native_unit_of_measurement="°C",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
