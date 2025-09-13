@@ -154,24 +154,49 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
         url = LOGIN_ENDPOINT
         payload = {"loginType": "1", "loginName": username, "password": password}
         async with session.post(url, json=payload) as resp:
+            try:
+                resp.raise_for_status()
+            except aiohttp.ClientError as err:
+                _LOGGER.error("Login request failed: %s", err)
+                raise UpdateFailed(f"Login request failed: {err}") from err
             data = await resp.json()
+            if "data" not in data or "token" not in data["data"]:
+                _LOGGER.error("Login response missing required fields: %s", data)
+                raise UpdateFailed("Missing token in login response")
             return data["data"]["token"]
 
     async def _get_station_id(self, session, token):
         url = STATION_LIST_ENDPOINT
         headers = {"Authorization": token}
         async with session.post(url, headers=headers, json={}) as resp:
+            try:
+                resp.raise_for_status()
+            except aiohttp.ClientError as err:
+                _LOGGER.error("Fetching station list failed: %s", err)
+                raise UpdateFailed(f"Fetching station list failed: {err}") from err
             data = await resp.json()
-            return data["data"][0]["stationId"]
+            stations = data.get("data")
+            if not stations or "stationId" not in stations[0]:
+                _LOGGER.error("Station list response missing 'data' or 'stationId': %s", data)
+                raise UpdateFailed("Missing stationId in station list response")
+            return stations[0]["stationId"]
 
     async def _get_power(self, session, token, station_id):
         url = REALTIME_POWER_ENDPOINT
         headers = {"Authorization": token}
         payload = {"stationId": station_id}
         async with session.post(url, headers=headers, json=payload) as resp:
+            try:
+                resp.raise_for_status()
+            except aiohttp.ClientError as err:
+                _LOGGER.error("Fetching power data failed: %s", err)
+                raise UpdateFailed(f"Fetching power data failed: {err}") from err
             data = await resp.json()
+            inverters = data.get("data")
+            if inverters is None:
+                _LOGGER.error("Power data response missing 'data': %s", data)
+                raise UpdateFailed("Missing data in power response")
             result = {}
-            inverters = data.get("data", [])
             if not inverters:
                 return {station_id: result}
             inv = inverters[0]
@@ -187,8 +212,16 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
         headers = {"Authorization": token}
         payload = {"stationId": station_id}
         async with session.post(url, headers=headers, json=payload) as resp:
+            try:
+                resp.raise_for_status()
+            except aiohttp.ClientError as err:
+                _LOGGER.error("Fetching energy data failed: %s", err)
+                raise UpdateFailed(f"Fetching energy data failed: {err}") from err
             data = await resp.json()
-            info = data.get("data", {})
+            info = data.get("data")
+            if info is None:
+                _LOGGER.error("Energy data response missing 'data': %s", data)
+                raise UpdateFailed("Missing data in energy response")
             return {
                 "total_energy": float(info.get("totalEnergy", "0") or 0),
                 "today_energy": float(info.get("todayEnergy", "0") or 0),
