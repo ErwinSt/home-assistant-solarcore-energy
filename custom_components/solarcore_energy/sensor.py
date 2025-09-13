@@ -1,27 +1,32 @@
 import logging
-import aiohttp
 from datetime import timedelta
 
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+import aiohttp
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+    UpdateFailed,
+)
 
 from .const import (
-    DOMAIN,
-    CONF_USERNAME,
     CONF_PASSWORD,
+    CONF_SENSORS,
+    CONF_UPDATE_INTERVAL,
+    CONF_USERNAME,
+    DEFAULT_UPDATE_INTERVAL,
+    DOMAIN,
     LOGIN_ENDPOINT,
-    STATION_LIST_ENDPOINT,
     REALTIME_POWER_ENDPOINT,
     STATION_INFO_ENDPOINT,
+    STATION_LIST_ENDPOINT,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-SCAN_INTERVAL = timedelta(seconds=30)
 MAX_ENERGY_JUMP_KWH = 5
 
 SENSOR_TYPES = {
@@ -39,16 +44,22 @@ SENSOR_TYPES = {
     "today_energy": ["Today Energy", "Wh", SensorDeviceClass.ENERGY],
 }
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
-    coordinator = RockcoreDataUpdateCoordinator(hass, entry.data)
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+):
+    options = entry.options
+    coordinator = RockcoreDataUpdateCoordinator(hass, entry.data, options)
     await coordinator.async_config_entry_first_refresh()
 
+    enabled_sensors = options.get(CONF_SENSORS, list(SENSOR_TYPES.keys()))
     entities = []
     for station_id in coordinator.station_ids:
         inverter = coordinator.data.get(station_id, {})
         for key, (name, unit, device_class) in SENSOR_TYPES.items():
-            if key in inverter:
-                entities.append(RockcoreSensor(coordinator, station_id, key, name, unit, device_class))
+            if key in enabled_sensors and key in inverter:
+                entities.append(
+                    RockcoreSensor(coordinator, station_id, key, name, unit, device_class)
+                )
 
     async_add_entities(entities, True)
 
@@ -108,11 +119,18 @@ class RockcoreSensor(CoordinatorEntity, SensorEntity):
 
 
 class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass, config):
+    def __init__(self, hass, config, options):
         self.username = config[CONF_USERNAME]
         self.password = config[CONF_PASSWORD]
         self.station_ids = []
-        super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=SCAN_INTERVAL)
+        self.sensors = options.get(CONF_SENSORS, list(SENSOR_TYPES.keys()))
+        update_seconds = options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=DOMAIN,
+            update_interval=timedelta(seconds=update_seconds),
+        )
 
     async def _async_update_data(self):
         try:
@@ -124,6 +142,9 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
                 for station_id in station_ids:
                     power_data = await self._get_power(session, token, station_id)
                     energy = await self._get_total_energy(session, token, station_id)
+                    energy = {
+                        k: v for k, v in energy.items() if k in self.sensors
+                    }
 
                     previous = self.data.get(station_id, {}) if self.data else {}
                     for key, new_val in energy.items():
@@ -212,11 +233,18 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
             if not inverters:
                 return {station_id: result}
             inv = inverters[0]
-            result = {k: inv.get(k, "0") for k in SENSOR_TYPES.keys() if k in inv}
-            result["power_total"] = sum(
-                int(inv.get(k, "0W").replace("W", "")) if inv.get(k, "0W").replace("W", "").isdigit() else 0
-                for k in ["power1", "power2"]
-            )
+            result = {
+                k: inv.get(k, "0")
+                for k in SENSOR_TYPES.keys()
+                if k in inv and k in self.sensors
+            }
+            if "power_total" in self.sensors:
+                result["power_total"] = sum(
+                    int(inv.get(k, "0W").replace("W", ""))
+                    if inv.get(k, "0W").replace("W", "").isdigit()
+                    else 0
+                    for k in ["power1", "power2"]
+                )
             return {station_id: result}
 
     async def _get_total_energy(self, session, token, station_id):
