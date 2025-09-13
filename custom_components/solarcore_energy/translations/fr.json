@@ -1,0 +1,26 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Rockcore Solar",
+                "description": "Entrez vos identifiants Rockcore"
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "power_total": {"name": "Puissance totale"},
+            "power1": {"name": "Puissance 1"},
+            "power2": {"name": "Puissance 2"},
+            "vol1": {"name": "Tension 1"},
+            "vol2": {"name": "Tension 2"},
+            "current1": {"name": "Courant 1"},
+            "current2": {"name": "Courant 2"},
+            "gridseq": {"name": "Fréquence du réseau"},
+            "gridvolc": {"name": "Tension du réseau"},
+            "temp": {"name": "Température"},
+            "total_energy": {"name": "Énergie totale"},
+            "today_energy": {"name": "Énergie du jour"}
+        }
+    }
+}
