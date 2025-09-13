@@ -133,14 +133,14 @@ SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
         translation_key="forecast_energy",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement="kWh",
-        state_class=SensorStateClass.MEASUREMENT,
+        state_class=SensorStateClass.TOTAL,
     ),
     SensorEntityDescription(
         key="estimated_savings",
         translation_key="estimated_savings",
         device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement="€",
-        state_class=SensorStateClass.MEASUREMENT,
+        state_class=SensorStateClass.TOTAL,
     ),
 ]
 
