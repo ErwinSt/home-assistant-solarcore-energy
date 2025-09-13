@@ -35,6 +35,33 @@ Easily track your solar power, voltage, temperature and total energy generation 
 - Your login (email + password)
 - Internet access (for cloud API)
 
+## 📣 Station Event Service
+
+This integration exposes the `station_event` service. It can be used to
+dispatch custom events about a station.
+
+```yaml
+service: solarcore_energy.station_event
+data:
+  station_id: "12345"
+  type: "error"
+```
+
+### Example Automation: Mobile Notification
+
+```yaml
+automation:
+  - alias: Solarcore alert
+    trigger:
+      platform: event
+      event_type: solarcore_energy_station_event
+    action:
+      - service: notify.mobile_app_my_phone
+        data:
+          message: >-
+            Station {{ trigger.event.data.station_id }} reported {{ trigger.event.data.type }}
+```
+
 ## 💡 Ideas & Next Steps
 
 - Add local IP support (reverse-engineered API)
