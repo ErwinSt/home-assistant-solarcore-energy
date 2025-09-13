@@ -2,13 +2,12 @@ import logging
 import aiohttp
 from datetime import timedelta
 
-from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
 
 from .const import (
     DOMAIN,
@@ -52,7 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     async_add_entities(entities, True)
 
 
-class RockcoreSensor(CoordinatorEntity):
+class RockcoreSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator, station_id, key, name, unit, device_class):
         super().__init__(coordinator)
         self.station_id = station_id
@@ -60,7 +59,6 @@ class RockcoreSensor(CoordinatorEntity):
         self._attr_name = f"Rockcore {station_id} {name}"
         self._attr_unique_id = f"rockcore_{station_id}_{key}"
         self._attr_native_unit_of_measurement = unit
-        self._attr_unit_of_measurement = unit
         self._attr_device_class = device_class
         self._attr_state_class = None
 
