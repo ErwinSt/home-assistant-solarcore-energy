@@ -10,7 +10,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 
-from .const import DOMAIN, CONF_USERNAME, CONF_PASSWORD
+from .const import (
+    DOMAIN,
+    CONF_USERNAME,
+    CONF_PASSWORD,
+    LOGIN_ENDPOINT,
+    STATION_LIST_ENDPOINT,
+    REALTIME_POWER_ENDPOINT,
+    STATION_INFO_ENDPOINT,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -118,21 +126,21 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
             raise UpdateFailed(f"Error updating data: {err}")
 
     async def _login(self, session, username, password):
-        url = "http://gf.rockcore-energy.com:9721/rcmi-manager/client/login"
+        url = LOGIN_ENDPOINT
         payload = {"loginType": "1", "loginName": username, "password": password}
         async with session.post(url, json=payload) as resp:
             data = await resp.json()
             return data["data"]["token"]
 
     async def _get_station_id(self, session, token):
-        url = "http://gf.rockcore-energy.com:9721/rcmi-manager/station/queryStationInfoList"
+        url = STATION_LIST_ENDPOINT
         headers = {"Authorization": token}
         async with session.post(url, headers=headers, json={}) as resp:
             data = await resp.json()
             return data["data"][0]["stationId"]
 
     async def _get_power(self, session, token, station_id):
-        url = "http://gf.rockcore-energy.com:9721/rcmi-manager/inverter/queryInverterRealInfoList"
+        url = REALTIME_POWER_ENDPOINT
         headers = {"Authorization": token}
         payload = {"stationId": station_id}
         async with session.post(url, headers=headers, json=payload) as resp:
@@ -150,7 +158,7 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
             return {station_id: result}
 
     async def _get_total_energy(self, session, token, station_id):
-        url = "http://gf.rockcore-energy.com:9721/rcmi-manager/station/queryStationInfo"
+        url = STATION_INFO_ENDPOINT
         headers = {"Authorization": token}
         payload = {"stationId": station_id}
         async with session.post(url, headers=headers, json=payload) as resp:
@@ -158,5 +166,5 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
             info = data.get("data", {})
             return {
                 "total_energy": float(info.get("totalEnergy", "0") or 0),
-                "today_energy": float(info.get("todayEnergy", "0") or 0)
+                "today_energy": float(info.get("todayEnergy", "0") or 0),
             }
