@@ -22,5 +22,12 @@
             "total_energy": {"name": "Énergie totale"},
             "today_energy": {"name": "Énergie du jour"}
         }
+    },
+    "issues": {
+        "connection_error": {
+            "title": "Échecs de connexion",
+            "description": "Solarcore Energy rencontre des échecs de connexion répétés."
+        }
     }
 }
+
