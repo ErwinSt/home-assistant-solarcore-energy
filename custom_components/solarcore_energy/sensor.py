@@ -96,6 +96,7 @@ SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
     SensorEntityDescription(
         key="gridseq",
         translation_key="gridseq",
+        device_class=SensorDeviceClass.FREQUENCY,
         native_unit_of_measurement="Hz",
         state_class=SensorStateClass.MEASUREMENT,
     ),
@@ -191,11 +192,15 @@ class RockcoreSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def device_info(self):
+        station_name = self.coordinator.station_names.get(
+            self.station_id, f"Station {self.station_id}"
+        )
         return {
             "identifiers": {(DOMAIN, self.station_id)},
-            "name": f"Rockcore Station {self.station_id}",
-            "manufacturer": "Rockcore",
-            "model": "Inverter",
+            "name": f"Solarcore {station_name}",
+            "manufacturer": "Rockcore Energy",
+            "model": "Solar Inverter",
+            "sw_version": "1.0.0",
         }
 
 
@@ -204,6 +209,7 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
         self.username = config[CONF_USERNAME]
         self.password = config[CONF_PASSWORD]
         self.station_ids = []
+        self.station_names = {}
         self.sensors = options.get(
             CONF_SENSORS, [desc.key for desc in SENSOR_DESCRIPTIONS]
         )
@@ -235,7 +241,7 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
                 previous = self.data.get(station_id, {}) if self.data else {}
                 for key, new_val in energy.items():
                     prev_val = previous.get(key)
-                    if prev_val is None:
+                    if prev_val is None or new_val is None:
                         continue
                     diff = new_val - prev_val
                     if key == "total_energy" and diff < 0:
@@ -247,7 +253,7 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
                             new_val,
                         )
                         energy[key] = prev_val
-                    elif diff > MAX_ENERGY_JUMP_KWH:
+                    elif key in ["total_energy", "today_energy"] and diff > MAX_ENERGY_JUMP_KWH:
                         _LOGGER.warning(
                             "Ignoring unrealistic jump in %s for station %s: %s -> %s",
                             key,
@@ -315,6 +321,13 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
         if not ids:
             _LOGGER.error("Station list response missing 'stationId': %s", data)
             raise UpdateFailed("Missing stationId in station list response")
+
+        # Store station names for better device naming
+        self.station_names = {
+            s.get("stationId"): s.get("stationName", f"Station {s.get('stationId')}")
+            for s in stations if s.get("stationId") is not None
+        }
+
         return ids
 
     async def _get_power(self, session, token, station_id):
@@ -344,30 +357,8 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
             if desc.key in inv and desc.key in self.sensors
         }
         if "power_total" in self.sensors:
-
-            def _parse_power(value: str) -> float:
-                """Return power in watts from a string value.
-
-                Values may come in formats like ``"123W"`` or ``"0.5kW"``.
-                Invalid or missing values are treated as ``0``.
-                """
-
-                if value is None:
-                    return 0.0
-                text = str(value).strip().lower()
-                multiplier = 1.0
-                if text.endswith("kw"):
-                    multiplier = 1000.0
-                    text = text[:-2]
-                elif text.endswith("w"):
-                    text = text[:-1]
-                try:
-                    return float(text) * multiplier
-                except (TypeError, ValueError):
-                    return 0.0
-
             result["power_total"] = sum(
-                _parse_power(inv.get(k, "0")) for k in ["power1", "power2"]
+                parse_value(inv.get(k, "0")) or 0.0 for k in ["power1", "power2"]
             )
         return {station_id: result}
 
@@ -388,29 +379,8 @@ class RockcoreDataUpdateCoordinator(DataUpdateCoordinator):
         if info is None:
             _LOGGER.error("Energy data response missing 'data': %s", data)
             raise UpdateFailed("Missing data in energy response")
-        
-        def _parse_energy(value: str) -> float:
-            """Return energy in kWh from a string value.
-
-            Values may come in formats like ``"1.2kWh"`` or ``"500Wh"``.
-            Invalid or missing values are treated as ``0``.
-            """
-
-            if value is None:
-                return 0.0
-            text = str(value).strip().lower()
-            multiplier = 1.0
-            if text.endswith("kwh"):
-                text = text[:-3]
-            elif text.endswith("wh"):
-                multiplier = 0.001
-                text = text[:-2]
-            try:
-                return float(text) * multiplier
-            except (TypeError, ValueError):
-                return 0.0
 
         return {
-            "total_energy": _parse_energy(info.get("totalEnergy")),
-            "today_energy": _parse_energy(info.get("todayEnergy")),
+            "total_energy": parse_value(info.get("totalEnergy")) or 0.0,
+            "today_energy": parse_value(info.get("todayEnergy")) or 0.0,
         }
