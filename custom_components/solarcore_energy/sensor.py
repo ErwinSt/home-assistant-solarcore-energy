@@ -178,7 +178,9 @@ class RockcoreSensor(CoordinatorEntity, SensorEntity):
         self._attr_has_entity_name = True
 
     @property
-    def state(self):
+    def native_value(self):
+        """Return the value reported by the sensor in its native unit."""
+
         value = self.coordinator.data.get(self.station_id, {}).get(self.key)
         if isinstance(value, str):
             for suffix in ["W", "V", "A", "Hz", "℃", "°C", "kWh", "Wh"]:
